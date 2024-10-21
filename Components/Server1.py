@@ -1,5 +1,6 @@
 import logging
 import queue
+import re
 import threading
 
 from flask import Flask, render_template, request, jsonify
@@ -11,21 +12,14 @@ app = Flask(__name__)
 
 # Queue to store messages
 message_queue = queue.Queue()
-DEFAULT_PID = 0
-
-import re
+DEFAULT_PID = 1
 
 
 def extrair_vetor(texto):
-
     match = re.search(r'<strong>(.*?)</strong>', texto)
-
 
     vetor = match.group(1)
     return [int(x) for x in vetor.split(',')]
-
-
-
 class Process:
     def __init__(self, process_id, total_processes, listen_port, send_port, max_delay, loss_probability,
                  ack_loss_probability, ack_timeout, max_retries, address):
@@ -72,23 +66,22 @@ def send_message():
 def receive_message():
     if not message_queue.empty():
         message = message_queue.get()
-        return jsonify({'message': str(message)})  # Certifique-se de converter a mensagem em string
+        return jsonify({'message': str(message)})
 
     return jsonify({'message': ''})
 
 @app.route('/get_id', methods=['GET'])
 def get_pid():
     with app.app_context():
-        return jsonify({'pid': str(DEFAULT_PID)})  # Certifique-se de converter a mensagem em string
-
+        return jsonify({'pid': str(DEFAULT_PID)})
 
 if __name__ == "__main__":
-    # Inicializa o processo apenas se o script for executado diretamente
+
     process2 = Process(
         process_id=DEFAULT_PID,
         total_processes=2,
-        listen_port=5050,
-        send_port=5051,
+        listen_port=5051,
+        send_port=5050,
         max_delay=1.0,
         loss_probability=0.1,
         ack_loss_probability=0.05,
@@ -97,9 +90,7 @@ if __name__ == "__main__":
         address='127.0.0.1'
     )
 
-    # Inicia uma thread para escutar mensagens recebidas
     listener_thread = threading.Thread(target=listen_for_messages, args=(process2,), daemon=True)
     listener_thread.start()
 
-    # Inicia o aplicativo Flask
-    app.run(debug=False, port=5001)
+    app.run(debug=False, port=5002)

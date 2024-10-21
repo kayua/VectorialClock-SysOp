@@ -1,0 +1,128 @@
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f7fa; /* Cor de fundo suave */
+            margin: 0;
+            padding: 20px;
+            color: #333; /* Texto em cinza escuro */
+        }
+
+        /* Container principal */
+        .container {
+            max-width: 800px; /* Aumenta a largura para mais espaço */
+            margin: auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        /* Estilo dos cabeçalhos */
+        h1 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #007bff; /* Azul moderno */
+            font-size: 2em; /* Aumenta o tamanho do título */
+            letter-spacing: 1px; /* Espaçamento entre letras */
+        }
+
+        h2 {
+            color: #495057; /* Cinza escuro */
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.3em;
+            border-bottom: 2px solid #007bff; /* Linha inferior para separação */
+            padding-bottom: 8px;
+        }
+
+        /* Estilo da seção de mensagens */
+        .message-display {
+            margin-bottom: 25px;
+        }
+
+        .message-box {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            height: 200px; /* Altura reduzida para um visual mais minimalista */
+            overflow-y: auto;
+            background: #f9f9f9; /* Fundo leve para a caixa de mensagens */
+            transition: background 0.3s ease;
+        }
+
+        .message-box:hover {
+            background: #f1f1f1; /* Cor ao passar o mouse */
+        }
+
+        /* Estilo da seção de entrada */
+        .input-section,
+        .ip-section {
+            display: flex;
+            flex-direction: column; /* Organiza os campos verticalmente */
+            margin-bottom: 20px; /* Espaço entre os campos */
+        }
+
+        .row {
+            display: flex; /* Usando flexbox para alinhamento horizontal */
+            gap: 10px; /* Espaço entre o campo e o botão */
+        }
+
+        label {
+            margin-bottom: 5px; /* Espaço abaixo do rótulo */
+            font-weight: 600; /* Destaque para o rótulo */
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            font-size: 16px; /* Aumenta o tamanho da fonte */
+            transition: border-color 0.3s, box-shadow 0.3s;
+            outline: none; /* Remove o contorno padrão */
+            flex: 1; /* Faz o campo de texto ocupar o máximo de espaço disponível */
+        }
+
+        input[type="text"]:focus {
+            border-color: #0056b3; /* Azul mais escuro ao focar */
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Sombra ao focar */
+        }
+
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007bff; /* Azul do botão */
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s; /* Adiciona efeito de transformação */
+            outline: none; /* Remove o contorno padrão */
+        }
+
+        button:hover {
+            background-color: #0056b3; /* Azul mais escuro ao passar o mouse */
+            transform: translateY(-1px); /* Efeito de elevação */
+        }
+
+        /* Estilo da barra de status */
+        .status-bar {
+            margin-top: 10px;
+            padding: 10px;
+            text-align: center;
+            background: #e9ecef; /* Fundo cinza claro */
+            border-radius: 8px;
+            color: #495057; /* Texto cinza escuro */
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .status-bar.success {
+            background: #d4edda; /* Verde claro para sucesso */
+            color: #155724; /* Texto verde escuro */
+        }
+
+        .status-bar.error {
+            background: #f8d7da; /* Vermelho claro para erro */
+            color: #721c24; /* Texto vermelho escuro */
+        }

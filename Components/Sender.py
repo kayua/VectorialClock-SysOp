@@ -1,186 +1,145 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-#
-__Author__ = 'Kayuã Oleques'
-__GitPage__ = 'unknown@unknown.com.br'
-__version__ = '{1}.{0}.{0}'
-__initial_data__ = '2024/10/20'
-__last_update__ = '2024/10/22'
-__credits__ = ['INF-UFRGS']
+import socket
+import threading
+import time
+import logging
+
+from FidgeClock import FidgeClock
+from VectorClock import VectorClock
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-try:
-    import sys
-    import time
-    import socket
-    import logging
-
-except ImportError as error:
-
-    print(error)
-    print()
-    print("1. (optional) Setup a virtual environment: ")
-    print("  python3 - m venv ~/Python3env/ReliableCommunication ")
-    print("  source ~/Python3env/DroidAugmentor/bin/activate ")
-    print()
-    print("2. Install requirements:")
-    print("  pip3 install --upgrade pip")
-    print("  pip3 install -r requirements.txt ")
-    print()
-    sys.exit(-1)
-
-class Sender:
-    def __init__(self, server_address, semantic):
+class Client:
+    def __init__(self, process_id: int,
+                 num_processes: int,
+                 clock_type: str,
+                 host: str = 'localhost',
+                 port: int = 6100):
         """
-        Initialize the UDPSender instance.
+        Initialize the client.
 
-        Args:
-            server_address (tuple): The address of the server as a tuple (host, port).
-
-        Raises:
-            ValueError: If the server_address is not a valid tuple with two elements.
+        :param process_id: Unique identifier for the process
+        :param num_processes: Total number of processes in the system
+        :param clock_type: Type of clock to use ('vector' or 'fidge')
+        :param host: Hostname or IP address of the server
+        :param port: Port number to connect to the server
         """
-        # Validate server address input
-        if not isinstance(server_address, tuple) or len(server_address) != 2:
-            logging.error("Invalid server address provided: %s", server_address)
-            raise ValueError("Server address must be a tuple (host, port).")
+        self.process_id = process_id  # Set the unique process ID
+        self.num_processes = num_processes  # Set the total number of processes
+        self.clock_type = clock_type  # Set the type of clock
 
-        # Store the server address for sending messages
-        self.server_address = server_address
-        self.semantic = semantic
-        # Create a UDP socket
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Initialize the appropriate clock based on the specified clock type
+        if clock_type == 'vector':
+            self.vector_clock = VectorClock(num_processes, process_id)
+            logging.info(f"Initialized VectorClock for process {process_id}.")
+        elif clock_type == 'fidge':
+            self.vector_clock = FidgeClock()
+            logging.info(f"Initialized FidgeClock for process {process_id}.")
+        else:
+            logging.error("Invalid clock type specified. Must be 'vector' or 'fidge'.")
+            raise ValueError("Clock type must be 'vector' or 'fidge'.")
 
-        # Create a logger for this module
-        self.logger = logging.getLogger(__name__)
-
-        # Log initialization of the Sender mode
-        self.logger.info("Sender Mode Initialized")
-
-    def send_message(self, message, semantic='at_most_once'):
-        """
-        Send a message to the server with specified semantic delivery.
-
-        Args:
-            message (str): The message to send.
-            semantic (str): The delivery semantic ('at_most_once', 'at_least_once', 'exactly_once').
-
-        Raises:
-            ValueError: If an invalid semantic type is provided.
-        """
-        # Validate the semantic type
-        if semantic not in ['at_most_once', 'at_least_once', 'exactly_once']:
-            self.logger.error("Invalid semantic type provided: %s", semantic)
-            raise ValueError("Semantic must be 'at_most_once', 'at_least_once', or 'exactly_once'.")
-
-        self.logger.debug("Preparing to send message: '%s' with semantic '%s'", message, semantic)
-
-        # Sending message with 'at_most_once' semantics
-        if semantic == 'at_most_once':
-
-            # Send message
-            self.client_socket.sendto(message.encode(), self.server_address)
-
-            # Log the send message
-            self.logger.info("Sent message (at most once): '%s' to %s", message, self.server_address)
-
-        # Sending message with 'at_least_once' semantics
-        elif semantic == 'at_least_once':
-
-            self.logger.info("Starting to send message with 'at_least_once' semantics.")
-
-            while True:
-
-                self.client_socket.sendto(message.encode(), self.server_address)  # Send message
-                # Log the send message
-                self.logger.info("Sent message (at least once): '%s' to %s", message, self.server_address)
-
-                # Set a timeout for receiving acknowledgment
-                self.client_socket.settimeout(1)
-
-                try:
-                    # Wait for acknowledgment from the server
-                    data, _ = self.client_socket.recvfrom(1024)
-                    # Log the received response
-                    self.logger.debug("Received response: %s", data)
-
-                    # Check if acknowledgment is received
-                    if data == b"ACK":
-                        self.logger.info("Acknowledgment received from server.")
-                        break
-
-                except socket.timeout:
-                    # Log timeout and resend message
-                    self.logger.warning("No ACK received, resending message: '%s'", message)
-
-        # Sending message with 'exactly_once' semantics
-        elif semantic == 'exactly_once':
-
-            # Generate a unique identifier for the message
-            message_id = int(time.time())
-            self.logger.info("Starting to send message with 'exactly_once' semantics. Message ID: %d", message_id)
-
-            while True:
-
-                # Send message prefixed with message ID to ensure uniqueness
-                self.client_socket.sendto(f"{message_id}:{message}".encode(), self.server_address)
-
-                # Log the send message
-                self.logger.info("Sent message (exactly once): '%s' with ID %d to %s",
-                                 message, message_id, self.server_address)
-
-                # Set a timeout for receiving acknowledgment
-                self.client_socket.settimeout(1)
-
-                try:
-                    # Wait for acknowledgment from the server
-                    data, _ = self.client_socket.recvfrom(1024)
-                    # Log the received response
-                    self.logger.debug("Received response: %s", data)
-
-                    # Check if acknowledgment is received
-                    if data == b"ACK":
-                        self.logger.info("Acknowledgment received from server (exactly once).")
-                        break
-
-                except socket.timeout:
-                    # Log timeout and resend message
-                    self.logger.warning("No ACK received, resending message with ID %d: '%s'",
-                                        message_id, message)
-
-    def run(self):
-        """
-        Start the message sending loop.
-        """
-
-        while True:
-
-            message = input("\nEnter the text to be sent (or 'exit' to leave):")
-
-            if message.lower() == 'exit':
-                self.logger.info("Exiting the message sending loop.\n")
-                break
-
-            self.send_message(message, self.semantic)
-
-    def close(self):
-        """
-        Close the UDP socket and log the closure.
-
-        Raises:
-            RuntimeError: If an error occurs while closing the socket.
-        """
+        # Create a socket for TCP communication
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-
-            # Close the socket
-            self.client_socket.close()
-
-            # Log successful closure
-            self.logger.info("Socket closed successfully.")
-
+            # Attempt to connect to the server
+            self.socket.connect((host, port))
+            logging.info(f"Process {process_id} connected to {host}:{port}.")
+            # Send the process ID to the server
+            self.socket.send(str(process_id).encode())
+            logging.debug(f"Process ID {process_id} sent to server.")
         except Exception as e:
+            logging.error(f"Connection failed: {e}")
+            raise
 
-            # Log any error during closure
-            self.logger.error("Error occurred while closing the socket: %s", str(e))
-            raise RuntimeError("Error occurred while closing the socket.") from e
+    def send_message(self):
+        """
+        Send a message to the server containing the current clock value.
+        This function increments the clock and constructs the message to be sent.
+        """
+        try:
+            # Get the recipient process ID from user input
+            recipient_id = int(input(f"Enter recipient process ID for process {self.process_id}: "))
+
+            # Increment the clock based on its type and prepare the message
+            if self.clock_type == 'vector':
+                current_clock = self.vector_clock.send_vector()
+                self.vector_clock.increment()  # Increment vector clock
+                message = f"{recipient_id} - {self.vector_clock.send_vector()}"
+                logging.debug(f"Process {self.process_id} incremented vector clock from {current_clock} to {self.vector_clock.send_vector()}.")
+                logging.info(f"Current state of vector clock for process {self.process_id}: {self.vector_clock.send_vector()}")
+            else:
+                current_clock = self.vector_clock.get_value()
+                self.vector_clock.increment()  # Increment Fidge clock
+                message = f"{recipient_id} - {self.vector_clock.get_value()}"
+                logging.debug(f"Process {self.process_id} incremented Fidge clock from {current_clock} to {self.vector_clock.get_value()}.")
+                logging.info(f"Current state of Fidge clock for process {self.process_id}: {self.vector_clock.get_value()}")
+
+            # Send the constructed message to the server
+            self.socket.send(message.encode())
+            logging.info(f"Process {self.process_id} sent message to {recipient_id} with clock: {message}")
+        except Exception as e:
+            logging.error(f"Failed to send message: {e}")
+
+    def receive_message(self):
+        """
+        Continuously listen for messages from the server.
+        When a message is received, update the clock accordingly.
+        """
+        while True:
+            try:
+                # Receive a message from the server
+                message = self.socket.recv(1024).decode()
+                if message:
+                    # Split the received message into sender ID and clock value
+                    sender_id, received_clock = message.split(' - ')
+                    logging.info(f"Process {self.process_id} received message from {sender_id}: {received_clock}")
+
+                    # Update the clock based on the clock type
+                    if self.clock_type == 'vector':
+                        logging.debug(f"Process {self.process_id} vector clock before update: {self.vector_clock.send_vector()}.")
+                        received_vector = self.vector_clock.receive_vector(received_clock)
+                        self.vector_clock.update(received_vector)
+                        logging.debug(f"Process {self.process_id} updated vector clock to: {self.vector_clock.send_vector()}.")
+                        logging.info(f"Current state of vector clock after receiving: {self.vector_clock.send_vector()}")
+                    else:
+                        logging.debug(f"Process {self.process_id} Fidge clock before update: {self.vector_clock.get_value()}.")
+                        self.vector_clock.update()
+                        logging.debug(f"Process {self.process_id} updated Fidge clock to: {self.vector_clock.get_value()}.")
+                        logging.info(f"Current state of Fidge clock after receiving: {self.vector_clock.get_value()}")
+
+            except Exception as e:
+                logging.error(f"Error receiving message: {e}")
+                break  # Exit loop on error
+
+    def start(self):
+        """
+        Start the client to listen for incoming messages and periodically send messages.
+        This method creates a thread for receiving messages and starts sending messages.
+        """
+        # Create a thread to handle incoming messages
+        receive_thread = threading.Thread(target=self.receive_message)
+        receive_thread.daemon = True  # Ensure the thread exits when the main program does
+        receive_thread.start()
+        logging.info(f"Process {self.process_id} started receiving messages.")
+
+        # Simulate sending messages periodically
+        while True:
+            time.sleep(5)  # Simulate a delay between sending messages
+            self.send_message()  # Send a message at regular intervals
+
+
+if __name__ == "__main__":
+    try:
+        # Get user input for process configuration
+        process_id = int(input("Enter process ID: "))  # Process ID
+        num_processes = int(input("Enter total number of processes: "))  # Total number of processes
+        clock_type = input("Choose clock type ('vector' or 'fidge'): ").strip().lower()  # Clock type choice
+
+        # Create a Client instance and start it
+        client = Client(process_id, num_processes, clock_type)
+        client.start()  # Start the client's main functionality
+    except Exception as e:
+        logging.error(f"Error initializing client: {e}")
