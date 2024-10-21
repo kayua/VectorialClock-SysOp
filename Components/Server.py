@@ -1,105 +1,114 @@
-import logging
+import argparse
 import queue
 import threading
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask
+from flask import jsonify
+from flask import request
+from flask import render_template
 
-from VectorClock import VectorClock
-from VirtualSocket import VirtualSocket
+from ThreadProcess import ThreadProcess
+from ThreadProcess import waiting_message
+
+DEFAULT_PROCESS_ID = 0
+DEFAULT_NUMBER_PROCESSES = 3
+DEFAULT_LISTEN_PORT = 5050
+DEFAULT_SEND_PORT = 5051
+DEFAULT_MAX_DELAY = 1.0
+DEFAULT_LOSS_PROBABILITY = 0.1
+DEFAULT_ACK_LOSS_PROBABILITY = 0.05
+DEFAULT_TIMEOUT = 2.0
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_IP_ADDRESS = '127.0.0.1'
 
 app = Flask(__name__)
-
-# Queue to store messages
 message_queue = queue.Queue()
-DEFAULT_PID = 0
-
-import re
-
-
-def extrair_vetor(texto):
-
-    match = re.search(r'<strong>(.*?)</strong>', texto)
-
-
-    vetor = match.group(1)
-    return [int(x) for x in vetor.split(',')]
-
-
-
-class Process:
-    def __init__(self, process_id, total_processes, listen_port, send_port, max_delay, loss_probability,
-                 ack_loss_probability, ack_timeout, max_retries, address):
-        self.process_id = process_id
-        self.vector_clock = VectorClock(total_processes, process_id)
-        self.socket = VirtualSocket(listen_port, send_port, max_delay, loss_probability, ack_loss_probability,
-                                    ack_timeout, max_retries, address)
-
-    def send_message(self, message, send_address):
-        self.vector_clock.increment()
-        vector_string = self.vector_clock.send_vector()
-        full_message = f"{message}<br>[<strong>{vector_string}</strong>]"
-        self.socket.create_send_message_socket(send_address)
-        self.socket.send_message(full_message)
-
-    def receive_message(self, message):
-        message = extrair_vetor(message)
-        self.vector_clock.update(message)
-
-def listen_for_messages(process):
-
-    while True:
-
-        message = process.socket.received_messages_content
-
-        if message:
-            process.receive_message(message)
-            message_queue.put(" {} \n {}\n".format(process.socket.received_messages_addr, message))
-
-        process.socket.received_messages_content = None
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+
 @app.route('/send_message', methods=['POST'])
 def send_message():
-    message = request.form['message']
-    address = request.form['address']
-    process2.send_message(message, address)
+
+    message, address = request.form['message'], request.form['address']
+    communication_process.send_message(message, address)
+
     return jsonify({'status': 'Message sent'})
+
 
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
-    if not message_queue.empty():
-        message = message_queue.get()
-        return jsonify({'message': str(message)})  # Certifique-se de converter a mensagem em string
 
-    return jsonify({'message': ''})
+    if not message_queue.empty():
+        return jsonify({'message': str(message_queue.get())})
+
+    else:
+        return jsonify({'message': ''})
+
 
 @app.route('/get_id', methods=['GET'])
 def get_pid():
     with app.app_context():
-        return jsonify({'pid': str(DEFAULT_PID)})  # Certifique-se de converter a mensagem em string
+        return jsonify({'pid': str(args.process_id)})
+
 
 
 if __name__ == "__main__":
-    # Inicializa o processo apenas se o script for executado diretamente
-    process2 = Process(
-        process_id=DEFAULT_PID,
-        total_processes=2,
-        listen_port=5050,
-        send_port=5051,
-        max_delay=1.0,
-        loss_probability=0.1,
-        ack_loss_probability=0.05,
-        ack_timeout=2.0,
-        max_retries=3,
-        address='127.0.0.1'
+
+    # ArgumentParser configuration
+    parser = argparse.ArgumentParser(description="Communication process configuration")
+
+    parser.add_argument('--process_id', type=int,
+                        default=DEFAULT_PROCESS_ID, help="Process ID")
+
+    parser.add_argument('--number_processes', type=int,
+                        default=DEFAULT_NUMBER_PROCESSES, help="Total number of processes")
+
+    parser.add_argument('--listen_port', type=int,
+                        default=DEFAULT_LISTEN_PORT, help="Listening port")
+
+    parser.add_argument('--send_port', type=int,
+                        default=DEFAULT_SEND_PORT, help="Sending port")
+
+    parser.add_argument('--max_delay', type=float,
+                        default=DEFAULT_MAX_DELAY, help="Maximum delay in seconds")
+
+    parser.add_argument('--loss_probability', type=float,
+                        default=DEFAULT_LOSS_PROBABILITY, help="Message loss probability")
+
+    parser.add_argument('--ack_loss_probability', type=float,
+                        default=DEFAULT_ACK_LOSS_PROBABILITY, help="ACK loss probability")
+
+    parser.add_argument('--ack_timeout', type=float,
+                        default=DEFAULT_TIMEOUT, help="ACK timeout in seconds")
+
+    parser.add_argument('--max_retries', type=int,
+                        default=DEFAULT_MAX_RETRIES, help="Maximum number of retries")
+
+    parser.add_argument('--address', type=str,
+                        default=DEFAULT_IP_ADDRESS, help="IP address")
+
+    # Parsing the arguments
+    args = parser.parse_args()
+
+    # Initializing the communication process with the provided arguments
+    communication_process = ThreadProcess(
+        process_id=args.process_id,
+        total_processes=args.number_processes,
+        listen_port=args.listen_port,
+        send_port=args.send_port,
+        max_delay=args.max_delay,
+        loss_probability=args.loss_probability,
+        ack_loss_probability=args.ack_loss_probability,
+        ack_timeout=args.ack_timeout,
+        max_retries=args.max_retries,
+        address=args.address
     )
 
-    # Inicia uma thread para escutar mensagens recebidas
-    listener_thread = threading.Thread(target=listen_for_messages, args=(process2,), daemon=True)
-    listener_thread.start()
 
-    # Inicia o aplicativo Flask
-    app.run(debug=False, port=5001)
+    __thread__ = threading.Thread(target=waiting_message, args=(communication_process, message_queue), daemon=True)
+    __thread__.start()
+
+    app.run(debug=False, port=5002)
