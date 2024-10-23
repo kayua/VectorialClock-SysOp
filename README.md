@@ -21,7 +21,10 @@ This code implements a communication system between two processes using sockets,
 
 
 ### 1. Run (main.py) Server Mode
-`python3 main.py (arguments)`
+    ```bash
+    python3 main.py (arguments)
+    python3 main.py --process_id 0 --listen_port 5050 --send_port 5050 --flask_port 5000 --address 127.0.0.1
+    ```
 
 
 ### Input parameters:
