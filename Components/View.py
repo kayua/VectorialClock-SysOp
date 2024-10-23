@@ -32,7 +32,7 @@ class View:
     Class responsible for rendering a visual representation of the server title using ASCII art.
     """
 
-    def __init__(self, title='Reliable Communication'):
+    def __init__(self, title='Vector clock'):
         """
         Initializes the view with a given title.
 
@@ -48,9 +48,7 @@ class View:
         """
         font_tex = Figlet(font='slant')
         print(font_tex.renderText(self.title))
-
-        # Adding the smaller text
-        small_text = mode
+        small_text = "Simulator"
         f_small = Figlet(font='mini')
         print(f_small.renderText(small_text))
         print("-"*30)
