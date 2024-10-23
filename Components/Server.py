@@ -48,8 +48,8 @@ def send_message():
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
     if not communication_process.message_queue.empty():
-        message = communication_process.message_queue.get()
-        return jsonify({'message': message})
+        message, sender_ip = communication_process.message_queue.get()
+        return jsonify({'message': message, 'sender_ip': sender_ip})  # Inclua o sender_ip
     return jsonify({'message': 'No new messages'}), 204
 
 @app.route('/get_id', methods=['GET'])
@@ -90,5 +90,3 @@ if __name__ == "__main__":
 
     # Iniciando a aplicação Flask
     app.run(port=args.flask_port)
-
-# Definições das classes ThreadProcess e VirtualSocket devem ser feitas em outros módulos conforme necessário.

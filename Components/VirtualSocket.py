@@ -32,7 +32,11 @@ class VirtualSocket:
 
     def send_message(self, message: str):
         delay = random.uniform(0, self._max_delay)
-        threading.Timer(delay, self._send, args=(message,)).start()  # Fixed this line
+        threading.Timer(delay, self._send, args=(message,)).start()
 
     def _send(self, message: str):
-        self.__send_socket.sendto(f"{message}".encode(), self.__send_address)
+        if self.__send_socket:
+            self.__send_socket.sendto(message.encode(), self.__send_address)
+
+    def get_local_ip(self):
+        return self.__listen_socket.getsockname()[0]

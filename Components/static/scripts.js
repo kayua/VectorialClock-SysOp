@@ -42,7 +42,9 @@ function updateStatusBar(message, backgroundColor) {
 }
 
 setInterval(function() {
+
     fetch('/receive_message')
+
         .then(response => response.json())
         .then(data => {
 
@@ -50,7 +52,7 @@ setInterval(function() {
 
                 const messageBox = document.getElementById('message-box');
                 const timestamp = new Date().toLocaleString();
-                messageBox.innerHTML += `<p><strong>Recebido: </strong> ${data.message}</p>`;
+                messageBox.innerHTML += `<p><strong>Recebido de ${data.sender_ip}: </strong> ${data.message}</p>`;
                 messageBox.scrollTop = messageBox.scrollHeight;
                 updateStatusBar('Mensagem recebida', '#2196F3');
 

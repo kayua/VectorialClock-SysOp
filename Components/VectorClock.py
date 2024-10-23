@@ -12,3 +12,9 @@ class VectorClock:
     def update(self, received_vector):
         for i in range(len(self.vector)):
             self.vector[i] = max(self.vector[i], received_vector[i])
+
+    def expected_clock(self, sender_process_id: int) -> list:
+        # Retorna o vetor de relógio esperado para o processo remetente
+        expected = self.vector.copy()
+        expected[sender_process_id] += 1
+        return expected
