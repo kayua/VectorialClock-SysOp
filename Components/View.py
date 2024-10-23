@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 __Author__ = 'Kayuã Oleques'
-__GitPage__ = 'unknown@unknown.com.br'
+__GitPage__ = 'https://github.com/kayua'
 __version__ = '{1}.{0}.{0}'
 __initial_data__ = '2024/10/20'
 __last_update__ = '2024/10/22'

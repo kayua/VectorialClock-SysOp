@@ -1,4 +1,15 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
+__Author__ = 'Kayuã Oleques'
+__GitPage__ = 'https://github.com/kayua'
+__version__ = '{1}.{0}.{0}'
+__initial_data__ = '2024/10/20'
+__last_update__ = '2024/10/22'
+__credits__ = ['INF-UFRGS']
+
 import argparse
+import logging
 import queue
 import threading
 
@@ -7,22 +18,24 @@ from flask import jsonify
 from flask import request
 from flask import render_template
 
-from ThreadProcess import ThreadProcess
-from ThreadProcess import waiting_message
+from ThreadProcess import ThreadProcess, waiting_message
+
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 DEFAULT_PROCESS_ID = 0
 DEFAULT_NUMBER_PROCESSES = 3
 DEFAULT_LISTEN_PORT = 5050
 DEFAULT_SEND_PORT = 5051
 DEFAULT_MAX_DELAY = 1.0
-DEFAULT_LOSS_PROBABILITY = 0.1
-DEFAULT_ACK_LOSS_PROBABILITY = 0.05
+DEFAULT_LOSS_PROBABILITY = 0.0
+DEFAULT_ACK_LOSS_PROBABILITY = 0.00
 DEFAULT_TIMEOUT = 2.0
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_IP_ADDRESS = '127.0.0.1'
 
 app = Flask(__name__)
 message_queue = queue.Queue()
+
 
 @app.route('/')
 def index():
@@ -31,19 +44,15 @@ def index():
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
-
     message, address = request.form['message'], request.form['address']
     communication_process.send_message(message, address)
-
     return jsonify({'status': 'Message sent'})
 
 
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
-
     if not message_queue.empty():
         return jsonify({'message': str(message_queue.get())})
-
     else:
         return jsonify({'message': ''})
 
@@ -54,46 +63,26 @@ def get_pid():
         return jsonify({'pid': str(args.process_id)})
 
 
-
 if __name__ == "__main__":
-
     # ArgumentParser configuration
     parser = argparse.ArgumentParser(description="Communication process configuration")
-
-    parser.add_argument('--process_id', type=int,
-                        default=DEFAULT_PROCESS_ID, help="Process ID")
-
-    parser.add_argument('--number_processes', type=int,
-                        default=DEFAULT_NUMBER_PROCESSES, help="Total number of processes")
-
-    parser.add_argument('--listen_port', type=int,
-                        default=DEFAULT_LISTEN_PORT, help="Listening port")
-
-    parser.add_argument('--send_port', type=int,
-                        default=DEFAULT_SEND_PORT, help="Sending port")
-
-    parser.add_argument('--max_delay', type=float,
-                        default=DEFAULT_MAX_DELAY, help="Maximum delay in seconds")
-
-    parser.add_argument('--loss_probability', type=float,
-                        default=DEFAULT_LOSS_PROBABILITY, help="Message loss probability")
-
-    parser.add_argument('--ack_loss_probability', type=float,
-                        default=DEFAULT_ACK_LOSS_PROBABILITY, help="ACK loss probability")
-
-    parser.add_argument('--ack_timeout', type=float,
-                        default=DEFAULT_TIMEOUT, help="ACK timeout in seconds")
-
-    parser.add_argument('--max_retries', type=int,
-                        default=DEFAULT_MAX_RETRIES, help="Maximum number of retries")
-
-    parser.add_argument('--address', type=str,
-                        default=DEFAULT_IP_ADDRESS, help="IP address")
-
-    # Parsing the arguments
+    parser.add_argument('--process_id', type=int, default=DEFAULT_PROCESS_ID, help="Process ID")
+    parser.add_argument('--number_processes', type=int, default=DEFAULT_NUMBER_PROCESSES, help="Number of processes")
+    parser.add_argument('--listen_port', type=int, default=DEFAULT_LISTEN_PORT, help="Listening port")
+    parser.add_argument('--send_port', type=int, default=DEFAULT_SEND_PORT, help="Sending port")
+    parser.add_argument('--max_delay', type=float, default=DEFAULT_MAX_DELAY, help="Maximum delay")
+    parser.add_argument('--loss_probability', type=float, default=DEFAULT_LOSS_PROBABILITY, help="Loss probability")
+    parser.add_argument('--ack_loss_probability', type=float, default=DEFAULT_ACK_LOSS_PROBABILITY,
+                        help="ACK loss probability")
+    parser.add_argument('--ack_timeout', type=float, default=DEFAULT_TIMEOUT, help="ACK timeout")
+    parser.add_argument('--max_retries', type=int, default=DEFAULT_MAX_RETRIES, help="Maximum retries")
+    parser.add_argument('--address', type=str, default=DEFAULT_IP_ADDRESS, help="Address")
+    parser.add_argument('--flask_port', type=int, help="Flask address")
     args = parser.parse_args()
 
-    # Initializing the communication process with the provided arguments
+    print("Running on http://127.0.0.1:{}".format(args.flask_port))
+
+    # Create communication process
     communication_process = ThreadProcess(
         process_id=args.process_id,
         total_processes=args.number_processes,
@@ -107,8 +96,9 @@ if __name__ == "__main__":
         address=args.address
     )
 
+    # Start waiting for incoming messages
+    waiting_thread = threading.Thread(target=waiting_message, args=(communication_process,))
+    waiting_thread.start()
 
-    __thread__ = threading.Thread(target=waiting_message, args=(communication_process, message_queue), daemon=True)
-    __thread__.start()
-
-    app.run(debug=False, port=5002)
+    # Start Flask app
+    app.run(port=args.flask_port)

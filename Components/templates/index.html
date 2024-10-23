@@ -124,18 +124,21 @@
 
     <div class="container">
 
-        <h1>Comunicação de Processos</h1>
-
+        <img src="static/ScreenSysOp.png" class="card-img-top" alt="Malware Image" style="width: 100%; height: auto; object-fit: contain;">
         <br>
         <br>
 
-        <div class="ip-section" style="margin-right: 300px;">
 
-            <h3 for="ip-input" aria-label="Insira o endereço IP de destino">Endereço IP/Porta de Destino:</h3>
+        <div class="ip-section" style="margin-right: 320px;">
 
-            <div class="row">
-                <input type="text" id="address-input" placeholder="Endereço IP" aria-required="true">
-                <input type="text" id="port-input" placeholder="Porta" style="width: 40px;" aria-required="true">
+            <h3 for="address-input" aria-label="Insira o endereço IP de destino">Endereço IP/Porta de Destino:</h3>
+
+
+            <div class="row" style="display: flex; width: 80%;">
+
+                <input type="text" id="address-input" placeholder="Endereço IP" aria-required="true" style="flex: 2; max-width: 66.67%;">
+
+                <input type="text" id="port-input" placeholder="Porta" aria-required="true" style="flex: 1; max-width: 33.33%;">
 
             </div>
 
@@ -148,7 +151,7 @@
 
         </div>
 
-        <section class="message-display">
+        <section class="message-display" >
 
             <h2>Mensagens Recebidas:</h2>
             <div id="message-box" class="message-box" aria-live="polite"></div>
