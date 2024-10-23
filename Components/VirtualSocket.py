@@ -29,7 +29,6 @@ except ImportError as error:
     print()
     sys.exit(-1)
 
-
 class VirtualSocket:
     def __init__(self,
                  listen_port: int,
