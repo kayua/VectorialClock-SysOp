@@ -30,7 +30,7 @@ DEFAULT_MAX_DELAY = 1.0
 DEFAULT_LOSS_PROBABILITY = 0.0
 DEFAULT_ACK_LOSS_PROBABILITY = 0.00
 DEFAULT_TIMEOUT = 2.0
-DEFAULT_MAX_RETRIES = 3
+DEFAULT_MAX_RETRIES = 100
 DEFAULT_IP_ADDRESS = '127.0.0.1'
 
 app = Flask(__name__)
@@ -52,7 +52,7 @@ def send_message():
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
     if not message_queue.empty():
-        return jsonify({'message': str(message_queue.get())})
+        return jsonify({'message': str(communication_process.message_queue.get())})
     else:
         return jsonify({'message': ''})
 

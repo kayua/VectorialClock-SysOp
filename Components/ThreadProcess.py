@@ -1,19 +1,8 @@
 import queue
-import re
 import threading
-import logging
-import random
-import socket
 
 from VectorClock import VectorClock
 from VirtualSocket import VirtualSocket
-
-
-def regular_exp(message):
-    match = re.search(r'\|(.*?)\|', message)
-    if match:
-        return [int(x.strip()) for x in match.group(1).split(',') if x.strip().isdigit()]
-    return []
 
 
 class ThreadProcess:
@@ -33,22 +22,21 @@ class ThreadProcess:
 
     def _build_message(self, message: str) -> str:
         vector_string = self.vector_clock.send_vector()
-        return f"{message}|{vector_string}|"
+        return f"{message}:{self.process_id}:{vector_string}"
 
     def send_message(self, message: str, send_address: str) -> None:
-        try:
-            print(f"Process {self.process_id}: Sending message, initial vector clock: {self.vector_clock.vector}")
-            self.vector_clock.increment()  # Increment before sending the message
-            full_message = self._build_message(message)
-            message_id = self.virtual_socket.create_send_message_socket(send_address)
-            self.sent_messages[message_id] = full_message
-            self.virtual_socket.send_message(full_message, message_id)  # Pass the message ID explicitly
-            print(f"Process {self.process_id}: Message sent, updated vector clock: {self.vector_clock.vector}")
-            self._check_ack(message_id, send_address)
-        except Exception as e:
-            print(f"Error sending message: {e}")
 
-    def _check_ack(self, message_id: str, send_address: str, retries: int = 0) -> None:
+        print(f"Process {self.process_id}: Sending message, initial vector clock: {self.vector_clock.vector}")
+        self.vector_clock.increment()  # Increment before sending the message
+        full_message = self._build_message(message)
+        message_id = self.virtual_socket.create_send_message_socket(send_address)
+        self.sent_messages[message_id] = full_message
+        self.virtual_socket.send_message(full_message, message_id)  # Pass the message ID explicitly
+        print(f"Process {self.process_id}: Message sent, updated vector clock: {self.vector_clock.vector}")
+        print(f"Process {self.process_id}: Waiting for ACK from message {message_id}")
+        self._check_ack(message_id, send_address)
+
+    def _check_ack(self, message_id: str, send_address: str, retries = 2) -> None:
         """
         Verifies if an ACK has been received, retries if necessary.
         """
@@ -58,48 +46,49 @@ class ThreadProcess:
 
         if not self.virtual_socket._acks_received.get(message_id, False):
             # Retry sending the message if ACK not received
-            print(f"Process {self.process_id}: No ACK for message {message_id}, retrying...")
+
             original_message = self.sent_messages[message_id]  # Retrieve the original message
             self.virtual_socket._send(original_message, message_id, retries + 1)  # Use the same message ID
             threading.Timer(self.virtual_socket._ack_timeout, self._check_ack, args=(message_id, send_address, retries + 1)).start()
         else:
+
             print(f"Process {self.process_id}: ACK received for message {message_id}.")
+            # Get the ACK and update the clock using the received vector from the ACK
+            ack_vector = self.virtual_socket.received_ack_vector.get(message_id)
+            print(message_id)
+            print(self.virtual_socket.received_ack_vector.get(message_id))
+            print("+++++++++++++++++++++++++++++++++++++++++++")
+            if ack_vector:
+                self.vector_clock.update(ack_vector)  # Update vector clock with the ACK vector
+                print(f"Process {self.process_id}: Vector clock updated after receiving ACK: {self.vector_clock.vector}")
+
+            print(self.sent_messages[message_id])
 
     def receive_message(self, message: str) -> None:
-        try:
-            clean_message = regular_exp(message)
-            print(f"Process {self.process_id}: Received message with vector clock: {clean_message}")
-            self.vector_clock.update(clean_message)  # Update the clock with the received vector
-            print(f"Process {self.process_id}: Clock updated after receiving message: {self.vector_clock.vector}")
+        print(message)
+        message_split = message.split(':')
+        vector_clock_message = [int(x.strip()) for x in message_split[2].replace('[', '').replace(']', '').split(',')]
+        content_message = str(message_split[0])
+        message_id = str(message_split[3])
+        print(f"Process {self.process_id}: Received message with vector clock: {vector_clock_message}")
+        self.vector_clock.update(vector_clock_message)
+        print(f"Process {self.process_id}: Clock updated after receiving message: {self.vector_clock.vector}")
 
-            # Increment before sending the ACK
-            self.vector_clock.increment()
-            print(f"Process {self.process_id}: Clock incremented to send ACK: {self.vector_clock.vector}")
-            self.virtual_socket._send_ack(self.virtual_socket.received_messages_addr, str(self.process_id))
+        # Increment before sending the ACK
+        self.vector_clock.increment()
+        print(f"Process {self.process_id}: Clock incremented to send ACK: {self.vector_clock.vector}")
+        self.virtual_socket._send_ack(self.virtual_socket.received_messages_addr, message_id,
+                                      str(self.vector_clock.vector), str(self.process_id))
+        self.message_queue.put(content_message)
 
-            # Compare clean_message with expected_vector
-            if clean_message < self.expected_vector:
-                self.message_queue.put(message)
-            else:
-                self.expected_vector = clean_message
-                self.process_queued_messages()
-        except Exception as e:
-            print(f"Error processing received message: {e}")
-
-    def process_queued_messages(self):
-        while not self.message_queue.empty():
-            queued_message = self.message_queue.get()
-            queued_vector = regular_exp(queued_message)
-            if queued_vector == self.expected_vector:
-                self.expected_vector = queued_vector
-            else:
-                self.message_queue.put(queued_message)  # Reinsert the message if it's not the expected one
-                break
 
 
 def waiting_message(process):
     while True:
-        content_message = process.virtual_socket.received_messages_content
-        if content_message:
-            process.receive_message(content_message)
-        process.virtual_socket.received_messages_content = None
+
+        if process.virtual_socket.received_messages_content:
+            process.receive_message(process.virtual_socket.received_messages_content)
+            process.virtual_socket.received_messages_content = ""
+
+        else:
+            threading.Event().wait(0.1)

@@ -3,7 +3,6 @@ import random
 import socket
 import threading
 
-
 class VirtualSocket:
     def __init__(self, listen_port: int, send_port: int, max_delay: float, loss_probability: float,
                  ack_loss_probability: float, ack_timeout: float, max_retries: int, address: str):
@@ -15,10 +14,11 @@ class VirtualSocket:
         self._max_delay = max_delay
         self._loss_probability = loss_probability
         self._ack_loss_probability = ack_loss_probability
-        self._ack_timeout = ack_timeout
+        self._ack_timeout = 2.0
         self._max_retries = max_retries
         self.received_messages_content = ""
         self.received_messages_addr = ""
+        self.received_ack_vector = {}  # Store vector clocks received with ACKs
 
         self._is_listening = True
         self._acks_received = {}
@@ -37,26 +37,35 @@ class VirtualSocket:
     def _listen(self):
         """Listen for incoming messages and process ACKs."""
         while self._is_listening:
-            try:
-                data, addr = self.__listen_socket.recvfrom(1024)
-                message = data.decode()
+            data, addr = self.__listen_socket.recvfrom(1024)
+            message = data.decode()
 
-                if message.startswith("ACK:"):
-                    message_id = message.split(":")[1]
-                    self._acks_received[message_id] = True
-                    print(f"Received ACK for message ID {message_id}")
+            if message.startswith("ACK:"):
+                print(f"Received message ACK: {message}")
+                parts = message.split(":")
+                print(parts)
+                print('-------------------')
+                message_id = str(parts[3])
+                ack_vector = [int(x.strip()) for x in parts[2].replace('[', '').replace(']', '').split(',')]
+                print(message_id)
+                print("Message ID Received")
+                self._acks_received[message_id] = True
+                self.received_ack_vector[message_id] = ack_vector
+                print(f"Received ACK for message ID {message_id}, vector clock: {ack_vector}")
+            else:
 
+                message_parts = message.split(":")
+                message_id = str(message_parts[3])
+                message_content = str(message_parts[0])
+
+                if message_id in self.received_messages_id:
+                    logging.debug(f"Duplicate message '{message_content}' from {addr} ignored.")
                 else:
-                    message_id, message_content = message.split(":", 1)
-                    if message_id in self.received_messages_id:
-                        logging.debug(f"Duplicate message '{message_content}' from {addr} ignored.")
-                    else:
-                        self.received_messages_id.add(message_id)
-                        self.received_messages_content = message_content
-                        self.received_messages_addr = (addr[0], self._send_port)
-                        self._send_ack((addr[0], self._send_port), message_id)
-            except Exception as e:
-                logging.error(f"Error in listening: {e}")
+                    self.received_messages_id.add(message_id)
+                    self.received_messages_content = message
+                    self.received_messages_addr = (addr[0], self._send_port)
+
+
 
     def send_message(self, message: str, message_id: str):
         """Send a message with a unique ID."""
@@ -66,33 +75,16 @@ class VirtualSocket:
         threading.Timer(delay, self._send, args=(message, message_id, 0)).start()
 
     def _send(self, message: str, msg_id: str, retries: int):
-        """Send a message, checking for ACK."""
+        """Send the message."""
         if retries > self._max_retries:
-            logging.error(f"Max retries reached for message '{message}' (ID {msg_id}).")
+            print(f"Max retries reached for message ID {msg_id}.")
             return
 
-        try:
-            full_message = f"{msg_id}:{message}"
-            self.__send_socket.sendto(full_message.encode(), self.__send_address)
-            print(f"Sent message ID {msg_id}")
-        except Exception as e:
-            logging.error(f"Error sending message '{message}' (ID {msg_id}): {e}")
-            self._check_ack(message, msg_id, retries)
+        self.__send_socket.sendto(f"{message}:{msg_id}".encode(), self.__send_address)
 
-    def _check_ack(self, message: str, msg_id: str, retries: int):
-        """Check for ACK receipt and resend if necessary."""
-        if not self._acks_received.get(msg_id, False):
-            delay = self._ack_timeout
-            threading.Timer(delay, self._send, args=(message, msg_id, retries + 1)).start()
-
-    def _send_ack(self, addr, msg_id: str):
-        """Send an ACK to a sender."""
-        ack_message = f"ACK:{msg_id}"
-        self.create_send_message_socket(addr[0])
-        print(f"Sending ACK for message ID {msg_id}")
-        self.__send_socket.sendto(ack_message.encode(), addr)
-
-    def close(self):
-        """Close the sockets when done."""
-        self.__send_socket.close()
-        self.__listen_socket.close()
+    def _send_ack(self, send_address, message_id: str, vector_clock, process_id):
+        """Send an ACK for a received message."""
+        print("ENVIANDO ACK")
+        self.create_send_message_socket(send_address)
+        ack_message = f"ACK:{process_id}:{vector_clock}:{message_id}"
+        self.__send_socket.sendto(ack_message.encode(), send_address)
