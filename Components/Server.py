@@ -47,8 +47,8 @@ def send_message():
 
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
-    if not message_queue.empty():
-        message = message_queue.get()
+    if not communication_process.message_queue.empty():
+        message = communication_process.message_queue.get()
         return jsonify({'message': message})
     return jsonify({'message': 'No new messages'}), 204
 
