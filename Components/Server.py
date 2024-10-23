@@ -3,7 +3,7 @@
 
 __Author__ = 'Kayuã Oleques'
 __GitPage__ = 'https://github.com/kayua'
-__version__ = '{1}.{0}.{0}'
+__version__ = '1.0.0'
 __initial_data__ = '2024/10/20'
 __last_update__ = '2024/10/22'
 __credits__ = ['INF-UFRGS']
@@ -12,16 +12,13 @@ import argparse
 import logging
 import queue
 import threading
+from flask import Flask, jsonify, request, render_template
+from ThreadProcess import ThreadProcess, waiting_message  # Supondo que essas classes estejam corretas
 
-from flask import Flask
-from flask import jsonify
-from flask import request
-from flask import render_template
-
-from ThreadProcess import ThreadProcess, waiting_message
-
+# Configurações de log
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
+# Configurações padrão
 DEFAULT_PROCESS_ID = 0
 DEFAULT_NUMBER_PROCESSES = 3
 DEFAULT_LISTEN_PORT = 5050
@@ -33,38 +30,34 @@ DEFAULT_TIMEOUT = 2.0
 DEFAULT_MAX_RETRIES = 100
 DEFAULT_IP_ADDRESS = '127.0.0.1'
 
+# Inicializando a aplicação Flask
 app = Flask(__name__)
 message_queue = queue.Queue()
-
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
 @app.route('/send_message', methods=['POST'])
 def send_message():
-    message, address = request.form['message'], request.form['address']
+    message = request.form['message']
+    address = request.form['address']
     communication_process.send_message(message, address)
     return jsonify({'status': 'Message sent'})
-
 
 @app.route('/receive_message', methods=['GET'])
 def receive_message():
     if not message_queue.empty():
-        return jsonify({'message': str(communication_process.message_queue.get())})
-    else:
-        return jsonify({'message': ''})
-
+        message = message_queue.get()
+        return jsonify({'message': message})
+    return jsonify({'message': 'No new messages'}), 204
 
 @app.route('/get_id', methods=['GET'])
 def get_pid():
-    with app.app_context():
-        return jsonify({'pid': str(args.process_id)})
-
+    return jsonify({'pid': str(args.process_id)})
 
 if __name__ == "__main__":
-    # ArgumentParser configuration
+    # Configuração do ArgumentParser
     parser = argparse.ArgumentParser(description="Communication process configuration")
     parser.add_argument('--process_id', type=int, default=DEFAULT_PROCESS_ID, help="Process ID")
     parser.add_argument('--number_processes', type=int, default=DEFAULT_NUMBER_PROCESSES, help="Number of processes")
@@ -72,33 +65,30 @@ if __name__ == "__main__":
     parser.add_argument('--send_port', type=int, default=DEFAULT_SEND_PORT, help="Sending port")
     parser.add_argument('--max_delay', type=float, default=DEFAULT_MAX_DELAY, help="Maximum delay")
     parser.add_argument('--loss_probability', type=float, default=DEFAULT_LOSS_PROBABILITY, help="Loss probability")
-    parser.add_argument('--ack_loss_probability', type=float, default=DEFAULT_ACK_LOSS_PROBABILITY,
-                        help="ACK loss probability")
+    parser.add_argument('--ack_loss_probability', type=float, default=DEFAULT_ACK_LOSS_PROBABILITY, help="ACK loss probability")
     parser.add_argument('--ack_timeout', type=float, default=DEFAULT_TIMEOUT, help="ACK timeout")
     parser.add_argument('--max_retries', type=int, default=DEFAULT_MAX_RETRIES, help="Maximum retries")
     parser.add_argument('--address', type=str, default=DEFAULT_IP_ADDRESS, help="Address")
-    parser.add_argument('--flask_port', type=int, help="Flask address")
+    parser.add_argument('--flask_port', type=int, required=True, help="Flask port")
     args = parser.parse_args()
 
     print("Running on http://127.0.0.1:{}".format(args.flask_port))
 
-    # Create communication process
+    # Criando o processo de comunicação
     communication_process = ThreadProcess(
         process_id=args.process_id,
         total_processes=args.number_processes,
         listen_port=args.listen_port,
         send_port=args.send_port,
         max_delay=args.max_delay,
-        loss_probability=args.loss_probability,
-        ack_loss_probability=args.ack_loss_probability,
-        ack_timeout=args.ack_timeout,
-        max_retries=args.max_retries,
         address=args.address
     )
 
-    # Start waiting for incoming messages
+    # Iniciando a espera por mensagens
     waiting_thread = threading.Thread(target=waiting_message, args=(communication_process,))
     waiting_thread.start()
 
-    # Start Flask app
+    # Iniciando a aplicação Flask
     app.run(port=args.flask_port)
+
+# Definições das classes ThreadProcess e VirtualSocket devem ser feitas em outros módulos conforme necessário.
