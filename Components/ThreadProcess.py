@@ -21,8 +21,8 @@ try:
     import threading  # For managing concurrent operations
 
     # Import custom modules for vector clocks and virtual sockets
-    from VectorClock import VectorClock
-    from VirtualSocket import VirtualSocket
+    from Components.VectorClock import VectorClock
+    from Components.VirtualSocket import VirtualSocket
 
 except ImportError as error:
     # Handle missing imports and guide the user through environment setup

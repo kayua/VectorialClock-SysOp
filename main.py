@@ -25,7 +25,7 @@ try:
     import argparse
     import threading
 
-    from View import View
+    from Components.View import View
 
     from flask import Flask
     from flask import jsonify
@@ -33,7 +33,7 @@ try:
     from flask import render_template
 
     from logging.handlers import RotatingFileHandler
-    from ThreadProcess import ThreadProcess, waiting_message
+    from Components.ThreadProcess import ThreadProcess, waiting_message
 
 except ImportError as error:
     # Handle missing imports and guide the user through environment setup

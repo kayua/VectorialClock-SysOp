@@ -1,5 +1,5 @@
 ![SysOP](Resources/ScreenSysOp.png)
-# Reliable Communication
+# Interprocess Communication
 This code implements a communication system between two processes using sockets, with synchronization managed by vector clocks. In this system, the processes exchange messages over a network, where sockets serve as the communication channel, facilitating the transmission of data. Vector clocks, a key mechanism in distributed systems, are used to maintain the logical ordering of events across the processes. Each process maintains a vector timestamp that tracks the causal relationships between events in the system, ensuring that message delivery follows a consistent order, even in the absence of a global clock. This allows the system to detect and handle concurrency and causality violations, ensuring synchronized communication and correct message sequencing.
 
 ## 1. Steps to Install:
@@ -13,7 +13,7 @@ This code implements a communication system between two processes using sockets,
    ```
 ### 2. Installation of application and internal dependencies
     ```bash
-    git clone https://github.com/kayua/ReliableCommunication.git
+    git clone https://github.com/kayua/VectorialClock-SysOp.git
     pip install -r requirements.txt
     ```
    
@@ -40,12 +40,8 @@ This code implements a communication system between two processes using sockets,
 
 
 ## 3. Implemented semantics
-| **Semantic**   |                                           Description                                            |         Command         |
-|:-------------:|:------------------------------------------------------------------------------------------------:|:-----------------------:|
-| At Most Once  |                       Ensures that each message will be sent at most once.                       |   --mode at_most_once   |
-| At Least Once |     Ensures that the message will be delivered at least once, which may result in duplicates     | --mode at_least_once    |
-| Exactly Once  |Ensures the unique and reliable delivery of each message, eliminating both duplicates and losses. |   --mode exactly_once   |
----------------------------------------------------------------------------------------------------------------------------------------
+
+![Execution](Resources/execution.png)
 
 ## 4. Requirements:
 
