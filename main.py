@@ -1,28 +1,42 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-#
+
+"""
+This script sets up a Flask web server that can send and receive messages
+between communication processes, configured with various settings. The server
+logs information, listens on a specified port, and manages messaging using
+queues and threads.
+"""
+
 __Author__ = 'Kayuã Oleques'
-__GitPage__ = 'unknown@unknown.com.br'
-__version__ = '{1}.{0}.{0}'
+__GitPage__ = 'https://github.com/kayua'
+__version__ = '1.0.0'
 __initial_data__ = '2024/10/20'
 __last_update__ = '2024/10/22'
 __credits__ = ['INF-UFRGS']
 
-
+# Import necessary modules and handle missing dependencies
 try:
+
     import os
     import sys
+    import queue
     import logging
     import argparse
-    from datetime import datetime
+    import threading
 
-    from Components.View import View
-    from Components.Sender import Sender
-    from Components.Server import Server
+    from View import View
+
+    from flask import Flask
+    from flask import jsonify
+    from flask import request
+    from flask import render_template
+
     from logging.handlers import RotatingFileHandler
+    from ThreadProcess import ThreadProcess, waiting_message
 
 except ImportError as error:
-
+    # Handle missing imports and guide the user through environment setup
     print(error)
     print()
     print("1. (optional) Setup a virtual environment: ")
@@ -33,16 +47,73 @@ except ImportError as error:
     print("  pip3 install --upgrade pip")
     print("  pip3 install -r requirements.txt ")
     print()
-    sys.exit(-1)
+    sys.exit(-1)  # Exit if dependencies are not met
 
-DEFAULT_MODE = 'server'
-DEFAULT_PORT_NUMBER = 8100
-DEFAULT_IP_ADDRESS = 'localhost'
-DEFAULT_SEMANTIC = 'at_most_once'
-DEFAULT_LOG_LEVEL = 'INFO'
-DEFAULT_PATH_LOGS = 'Logs'
-DEFAULT_TIMEOUT = None
-DEFAULT_MAX_MESSAGES = None
+# Disable Flask's default request logging
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
+# Default configuration values
+DEFAULT_PATH_LOGS = 'Components/Logs'
+DEFAULT_PROCESS_ID = 0
+DEFAULT_NUMBER_PROCESSES = 3
+DEFAULT_LISTEN_PORT = 5050
+DEFAULT_SEND_PORT = 5050
+DEFAULT_MAX_DELAY = 10.0
+DEFAULT_LOSS_PROBABILITY = 0.0
+DEFAULT_ACK_LOSS_PROBABILITY = 0.00
+DEFAULT_TIMEOUT = 2.0
+DEFAULT_MAX_RETRIES = 100
+DEFAULT_IP_ADDRESS = '127.0.0.1'
+
+# Initialize Flask app and a message queue
+app = Flask(__name__)
+message_queue = queue.Queue()
+
+
+@app.route('/')
+def index():
+    """
+    Route to render the homepage. Serves index.html.
+    """
+    logging.info("Homepage accessed.")
+    return render_template('index.html')
+
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    """
+    API route to send a message. Expects 'message' and 'address' in the form data.
+    The message is sent via the communication process.
+    """
+    message = request.form['message']
+    address = request.form['address']
+    logging.info(f"Received request to send message: '{message}' to {address}")
+    communication_process.send_message(message, address)
+    return jsonify({'status': 'Message sent'})
+
+
+@app.route('/receive_message', methods=['GET'])
+def receive_message():
+    """
+    API route to receive messages. Retrieves the next message from the queue
+    if available and returns it, or returns a 'No new messages' status.
+    """
+    if not communication_process.message_queue.empty():
+        message, sender_ip = communication_process.message_queue.get()
+        logging.info(f"Message received from {sender_ip}: {message}")
+        return jsonify({'message': message, 'sender_ip': sender_ip})
+
+    logging.debug("No new messages.")
+    return jsonify({'message': 'No new messages'}), 204
+
+
+@app.route('/get_id', methods=['GET'])
+def get_pid():
+    """
+    API route to get the process ID (pid).
+    """
+    logging.debug(f"Process ID requested: {args.process_id}")
+    return jsonify({'pid': str(args.process_id)})
 
 
 def show_all_settings(arguments):
@@ -69,17 +140,20 @@ def show_all_settings(arguments):
 
 
 def get_logs_path():
-    # Defines the logs directory name as 'Logs'
+    """
+    Returns the path to the logs directory.
+    Creates the directory if it doesn't exist.
+    """
     logs_dir = DEFAULT_PATH_LOGS
-
-    # Creates the 'Logs' directory if it doesn't exist, the parameter exist_ok=True ensures
     os.makedirs(logs_dir, exist_ok=True)
-
-    # Returns the path to the logs directory
     return logs_dir
 
 
 def configure_logging(verbosity):
+    """
+    Configures logging to file and console with a rotating file handler.
+    Adjusts log format based on verbosity level.
+    """
     logger = logging.getLogger()
 
     # Default format for log messages
@@ -87,6 +161,7 @@ def configure_logging(verbosity):
     if verbosity == logging.DEBUG:
         logging_format = '%(asctime)s\t***\t%(levelname)s {%(module)s} [%(funcName)s] %(message)s'
 
+    from datetime import datetime
     LOGGING_FILE_NAME = datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.log'
     logging_filename = os.path.join(get_logs_path(), LOGGING_FILE_NAME)
 
@@ -111,65 +186,47 @@ def configure_logging(verbosity):
     logger.addHandler(consoleHandler)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Reliable Communication')
-
-    parser.add_argument('--mode', default=DEFAULT_MODE, choices=['sender', 'server'],
-                        help='Choose "sender" to send messages or "server" to receive messages.')
-
-    parser.add_argument('--host', type=str, default=DEFAULT_IP_ADDRESS,
-                        help='Host address for the server.')
-
-    parser.add_argument('--port', type=int, default=DEFAULT_PORT_NUMBER,
-                        help='Port number for the server.')
-
-    parser.add_argument('--semantic', type=str, choices=['at_most_once', 'at_least_once', 'exactly_once'],
-                        default=DEFAULT_SEMANTIC, help='Message handling semantic.')
-
-    parser.add_argument('--log-level', type=str, choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                        default=DEFAULT_LOG_LEVEL, help='Logging level for server operations.')
-
-    parser.add_argument('--timeout', type=int, default=DEFAULT_TIMEOUT,
-                        help='Socket timeout for receiving messages in seconds.')
-
-    parser.add_argument('--max_messages', type=int, default=DEFAULT_MAX_MESSAGES,
-                        help='Maximum number of messages to process before stopping.')
-
+if __name__ == "__main__":
+    """
+    Main entry point of the program. Parses command-line arguments, configures
+    logging, starts the communication process, and runs the Flask web server.
+    """
+    # Argument parser setup
+    parser = argparse.ArgumentParser(description="Communication process configuration")
+    parser.add_argument('--process_id', type=int, default=DEFAULT_PROCESS_ID, help="Process ID")
+    parser.add_argument('--number_processes', type=int, default=DEFAULT_NUMBER_PROCESSES, help="Number of processes")
+    parser.add_argument('--listen_port', type=int, default=DEFAULT_LISTEN_PORT, help="Listening message port")
+    parser.add_argument('--send_port', type=int, default=DEFAULT_SEND_PORT, help="Sending message port")
+    parser.add_argument('--max_delay', type=float, default=DEFAULT_MAX_DELAY, help="Maximum delay communication")
+    parser.add_argument('--max_retries', type=int, default=DEFAULT_MAX_RETRIES, help="Maximum retries message send")
+    parser.add_argument('--address', type=str, default=DEFAULT_IP_ADDRESS, help="Local IP Address")
+    parser.add_argument('--flask_port', type=int, required=True, help="Flask port for frontend/backend communication")
     args = parser.parse_args()
 
-    # Set log level
-    log_level = getattr(logging, args.log_level.upper(), logging.INFO)
-    configure_logging(log_level)
+    # Configure logging with INFO verbosity
+    configure_logging(logging.INFO)
+
+    # Initialize the view and communication process
+    view = View()
+    view.print_view("")
+    logging.info(f"Starting Flask server on http://127.0.0.1:{args.flask_port}")
+    # Log the command-line settings
+    show_all_settings(args)
 
 
-    if args.mode == 'sender':
+    # Start the communication process thread
+    communication_process = ThreadProcess(
+        process_id=args.process_id,
+        total_processes=args.number_processes,
+        listen_port=args.listen_port,
+        send_port=args.send_port,
+        max_delay=args.max_delay,
+        address=args.address
+    )
 
-        # Assume a View class exists for displaying information to the user
-        view = View()
-        # Display the initial view
-        view.print_view("Sender Mode")
-        # Log all settings
-        show_all_settings(args)
+    # Start a thread to handle waiting messages
+    waiting_thread = threading.Thread(target=waiting_message, args=(communication_process,))
+    waiting_thread.start()
 
-        sender = Sender(server_address=(args.host, args.port), semantic=args.semantic)
-        sender.run()
-        sender.close()
-
-    elif args.mode == 'server':
-
-        # Display server mode message using pyfiglet
-        view = View()
-        view.print_view("Server Mode")
-
-        # Log all settings
-        show_all_settings(args)
-
-        server = Server(server_address=(args.host, args.port), semantic=args.semantic,
-                        timeout=args.timeout, max_messages=args.max_messages)
-        server.start()
-
-
-if __name__ == '__main__':
-    main()
-
-
+    # Start the Flask app
+    app.run(port=args.flask_port)

@@ -1,7 +1,6 @@
 ![SysOP](Resources/ScreenSysOp.png)
 # Reliable Communication
-This code implements a communication system between two processes using sockets, allowing for the selection of the delivery semantics that best suits the application's context. Three delivery semantics are implemented: at most once, at least once, and exactly once.
-
+This code implements a communication system between two processes using sockets, with synchronization managed by vector clocks. In this system, the processes exchange messages over a network, where sockets serve as the communication channel, facilitating the transmission of data. Vector clocks, a key mechanism in distributed systems, are used to maintain the logical ordering of events across the processes. Each process maintains a vector timestamp that tracks the causal relationships between events in the system, ensuring that message delivery follows a consistent order, even in the absence of a global clock. This allows the system to detect and handle concurrency and causality violations, ensuring synchronized communication and correct message sequencing.
 
 ## 1. Steps to Install:
 
@@ -14,7 +13,7 @@ This code implements a communication system between two processes using sockets,
    ```
 ### 2. Installation of application and internal dependencies
     ```bash
-    git clone [https://github.com/kayua/ModelsAudioClassification]
+    git clone https://github.com/kayua/ReliableCommunication.git
     pip install -r requirements.txt
     ```
    
@@ -22,22 +21,21 @@ This code implements a communication system between two processes using sockets,
 
 
 ### 1. Run (main.py) Server Mode
-`python3 main.py --mode server (arguments)`
+`python3 main.py (arguments)`
 
-### 2. Run (main.py) Sender Mode
-`python3 main.py --mode sender (arguments)`
 
 ### Input parameters:
 
     Arguments:
-        --mode                  Choose "sender" or "server" Mode (DEFAULT 'server')
-        --host                  Host address for the server (DEFAULT 'localhost')
-        --port                  Port number for the server (DEFAULT '8100')
-        --semantic              Message handling semantic (DEFAULT 'at_most_once')
-        --log-level             Logging level for server operations (DEFAULT 'INFO')
-        --timeout               Socket timeout for receiving messages in seconds (DEFAULT 'None')
-        --max_messages          Maximum number of messages to process before stopping (DEFAULT 'None')
 
+        --process_id            Process ID
+        --number_processes      Number of processes
+        --listen_port           Listening message port
+        --send_port             Sending message port 
+        --max_delay             Maximum delay communication
+        --max_retries           Maximum retries message send
+        --address               Local IP Address
+        --flask_port            Flask port for frontend/backend communication
     --------------------------------------------------------------
 
 
