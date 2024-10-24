@@ -25,13 +25,12 @@ try:
     import argparse
     import threading
 
-    from Components.View import View
-
     from flask import Flask
     from flask import jsonify
     from flask import request
     from flask import render_template
 
+    from Components.View import View
     from logging.handlers import RotatingFileHandler
     from Components.ThreadProcess import ThreadProcess, waiting_message
 
@@ -59,9 +58,6 @@ DEFAULT_NUMBER_PROCESSES = 3
 DEFAULT_LISTEN_PORT = 5050
 DEFAULT_SEND_PORT = 5050
 DEFAULT_MAX_DELAY = 10.0
-DEFAULT_LOSS_PROBABILITY = 0.0
-DEFAULT_ACK_LOSS_PROBABILITY = 0.00
-DEFAULT_TIMEOUT = 2.0
 DEFAULT_MAX_RETRIES = 100
 DEFAULT_IP_ADDRESS = '127.0.0.1'
 

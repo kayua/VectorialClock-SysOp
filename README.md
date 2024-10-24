@@ -12,26 +12,25 @@ This code implements a communication system between two processes using sockets,
    sudo apt-get upgrade 
    ```
 ### 2. Installation of application and internal dependencies
-    ```bash
+
     git clone https://github.com/kayua/VectorialClock-SysOp.git
     pip install -r requirements.txt
-    ```
+
    
 ## 2. Run experiments:
 
 
 ### 1. Run (main.py) Server Mode
-    ```bash
+    
     python3 main.py (arguments)
-    python3 main.py --process_id 0 --listen_port 5050 --send_port 5050 --flask_port 5000 --address 127.0.0.1
-    ```
-
+    Example: python3 main.py --process_id (ID Process) --listen_port 5050 --send_port 5050 --flask_port 5000 --address (IP Address)
+    
 
 ### Input parameters:
 
     Arguments:
 
-        --process_id            Process ID
+        --process_id            Process ID ()
         --number_processes      Number of processes
         --listen_port           Listening message port
         --send_port             Sending message port 
